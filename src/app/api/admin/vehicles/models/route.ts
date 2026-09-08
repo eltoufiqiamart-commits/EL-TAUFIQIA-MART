@@ -1,0 +1,10 @@
+import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/db";
+import { vehicleModels } from "@/db/schema";
+import { and, asc, eq } from "drizzle-orm";
+import { requireAdmin } from "@/lib/auth";
+import { slugify } from "@/lib/utils";
+export async function GET(req: NextRequest) { try { await requireAdmin(); const makeId = new URL(req.url).searchParams.get("makeId"); const rows = await db.select().from(vehicleModels).where(makeId ? eq(vehicleModels.makeId, makeId) : undefined).orderBy(asc(vehicleModels.nameEn)); return NextResponse.json({ models: rows }); } catch (e) { console.error(e); return NextResponse.json({ error: "تعذر تحميل الموديلات" }, { status: 500 }); } }
+export async function POST(req: NextRequest) { try { await requireAdmin(); const b=await req.json(); if(!b.makeId||!b.nameAr||!b.nameEn) return NextResponse.json({error:"البيانات مطلوبة"},{status:400}); const slug=slugify(b.nameEn)||`model-${Date.now()}`; const [row]=await db.insert(vehicleModels).values({makeId:b.makeId,nameAr:b.nameAr,nameEn:b.nameEn,slug,isActive:b.isActive!==false}).returning(); return NextResponse.json({model:row}); } catch(e){console.error(e);return NextResponse.json({error:"تعذر الحفظ"},{status:500});} }
+export async function PATCH(req:NextRequest){try{await requireAdmin();const b=await req.json();if(!b.id||!b.makeId||!b.nameAr||!b.nameEn)return NextResponse.json({error:"البيانات مطلوبة"},{status:400});const [row]=await db.update(vehicleModels).set({makeId:b.makeId,nameAr:b.nameAr,nameEn:b.nameEn,isActive:b.isActive!==false}).where(eq(vehicleModels.id,b.id)).returning();return NextResponse.json({model:row});}catch(e){console.error(e);return NextResponse.json({error:"تعذر التعديل"},{status:500});}}
+export async function DELETE(req:NextRequest){try{await requireAdmin();const id=new URL(req.url).searchParams.get("id");if(!id)return NextResponse.json({error:"المعرف مطلوب"},{status:400});await db.update(vehicleModels).set({isActive:false}).where(eq(vehicleModels.id,id));return NextResponse.json({success:true});}catch(e){console.error(e);return NextResponse.json({error:"تعذر التعطيل"},{status:500});}}
